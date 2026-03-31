@@ -1,6 +1,6 @@
 # Option A: Setup Guide – Power Automate Flow
 
-> Requires a **Power Automate Premium** license (HTTP connector is a premium feature).
+> Requires a **Power Automate Premium** license for the **flow owner** (the user who creates and owns the flow in Power Automate). The HTTP connector used in this flow is a premium feature. The App Registration itself does not require any license.
 
 ## 1. Create App Registration
 

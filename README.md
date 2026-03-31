@@ -66,7 +66,7 @@ All three options use the **same sync logic**, the **same App Registration**, an
 
 | Option | Additional Requirement |
 |---|---|
-| **A: Power Automate Flow** | Power Automate **Premium** license (HTTP connector is premium) |
+| **A: Power Automate Flow** | Power Automate **Premium** license (for the flow owner – the HTTP connector is a premium feature) |
 | **B: PowerShell + Task Scheduler** | PowerShell 5.1+, always-on Windows machine |
 | **C: Azure Automation Runbook** | Azure Subscription (500 min/month free tier) |
 
