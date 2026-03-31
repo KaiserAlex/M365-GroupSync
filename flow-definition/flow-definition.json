@@ -1,0 +1,604 @@
+{
+  "properties": {
+    "displayName": "GroupSync - Member Sync",
+    "state": "Started",
+    "definition": {
+      "parameters": {},
+      "actions": {
+        "Init_varAddedCount": {
+          "runAfter": {},
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "value": 0,
+                "type": "integer",
+                "name": "varAddedCount"
+              }
+            ]
+          }
+        },
+        "Init_varRemovedCount": {
+          "runAfter": {
+            "Init_varAddedCount": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "value": 0,
+                "type": "integer",
+                "name": "varRemovedCount"
+              }
+            ]
+          }
+        },
+        "Init_varAddedUsers": {
+          "runAfter": {
+            "Init_varRemovedCount": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "value": "",
+                "type": "string",
+                "name": "varAddedUsers"
+              }
+            ]
+          }
+        },
+        "Init_varRemovedUsers": {
+          "runAfter": {
+            "Init_varAddedUsers": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "value": "",
+                "type": "string",
+                "name": "varRemovedUsers"
+              }
+            ]
+          }
+        },
+        "Init_varAccessToken": {
+          "runAfter": {
+            "Init_varRemovedUsers": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "value": "",
+                "type": "string",
+                "name": "varAccessToken"
+              }
+            ]
+          }
+        },
+        "HTTP_Get_Token": {
+          "runAfter": {
+            "Init_varAccessToken": [
+              "Succeeded"
+            ]
+          },
+          "type": "Http",
+          "runtimeConfiguration": {
+            "secureData": {
+              "properties": [
+                "inputs",
+                "outputs"
+              ]
+            }
+          },
+          "inputs": {
+            "body": "grant_type=client_credentials&client_id=<YOUR-CLIENT-ID>&client_secret=<YOUR-CLIENT-SECRET>&scope=https://graph.microsoft.com/.default",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/x-www-form-urlencoded"
+            },
+            "uri": "https://login.microsoftonline.com/<YOUR-TENANT-ID>/oauth2/v2.0/token"
+          }
+        },
+        "Set_AccessToken": {
+          "runAfter": {
+            "HTTP_Get_Token": [
+              "Succeeded"
+            ]
+          },
+          "type": "SetVariable",
+          "inputs": {
+            "name": "varAccessToken",
+            "value": "@{body('HTTP_Get_Token')?['access_token']}"
+          }
+        },
+        "HTTP_Get_Config": {
+          "runAfter": {
+            "Set_AccessToken": [
+              "Succeeded"
+            ]
+          },
+          "type": "Http",
+          "inputs": {
+            "method": "GET",
+            "headers": {
+              "Authorization": "Bearer @{variables('varAccessToken')}"
+            },
+            "uri": "https://graph.microsoft.com/v1.0/sites/<YOUR-SHAREPOINT-SITE-ID>/lists/<YOUR-CONFIG-LIST-ID>/items?$expand=fields&$top=100"
+          }
+        },
+        "Filter_Enabled_Configs": {
+          "runAfter": {
+            "HTTP_Get_Config": [
+              "Succeeded"
+            ]
+          },
+          "type": "Query",
+          "inputs": {
+            "from": "@body('HTTP_Get_Config')?['value']",
+            "where": "@equals(item()?['fields']?['SyncEnabled'], true)"
+          }
+        },
+        "For_Each_Config": {
+          "runAfter": {
+            "Filter_Enabled_Configs": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach",
+          "foreach": "@body('Filter_Enabled_Configs')",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "actions": {
+            "Reset_AddedCount": {
+              "runAfter": {},
+              "type": "SetVariable",
+              "inputs": {
+                "name": "varAddedCount",
+                "value": 0
+              }
+            },
+            "Reset_RemovedCount": {
+              "runAfter": {
+                "Reset_AddedCount": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "varRemovedCount",
+                "value": 0
+              }
+            },
+            "Reset_AddedUsers": {
+              "runAfter": {
+                "Reset_RemovedCount": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "varAddedUsers",
+                "value": ""
+              }
+            },
+            "Reset_RemovedUsers": {
+              "runAfter": {
+                "Reset_AddedUsers": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "varRemovedUsers",
+                "value": ""
+              }
+            },
+            "Scope_TrySync": {
+              "runAfter": {
+                "Reset_RemovedUsers": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Scope",
+              "actions": {
+                "HTTP_Get_Source_Members": {
+                  "runAfter": {},
+                  "type": "Http",
+                  "inputs": {
+                    "method": "GET",
+                    "headers": {
+                      "Authorization": "Bearer @{variables('varAccessToken')}"
+                    },
+                    "uri": "https://graph.microsoft.com/v1.0/groups/@{items('For_Each_Config')?['fields']?['SourceGroupId']}/members?$select=id,displayName,userPrincipalName&$top=999"
+                  }
+                },
+                "Filter_Source_Users": {
+                  "runAfter": {
+                    "HTTP_Get_Source_Members": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('HTTP_Get_Source_Members')?['value']",
+                    "where": "@not(equals(item()?['userPrincipalName'], null))"
+                  }
+                },
+                "HTTP_Get_Target_Members": {
+                  "runAfter": {
+                    "Filter_Source_Users": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Http",
+                  "inputs": {
+                    "method": "GET",
+                    "headers": {
+                      "Authorization": "Bearer @{variables('varAccessToken')}"
+                    },
+                    "uri": "https://graph.microsoft.com/v1.0/groups/@{items('For_Each_Config')?['fields']?['TargetGroupId']}/members?$select=id,displayName,userPrincipalName&$top=999"
+                  }
+                },
+                "Filter_Target_Users": {
+                  "runAfter": {
+                    "HTTP_Get_Target_Members": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('HTTP_Get_Target_Members')?['value']",
+                    "where": "@not(equals(item()?['userPrincipalName'], null))"
+                  }
+                },
+                "HTTP_Get_Target_Owners": {
+                  "runAfter": {
+                    "Filter_Target_Users": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Http",
+                  "inputs": {
+                    "method": "GET",
+                    "headers": {
+                      "Authorization": "Bearer @{variables('varAccessToken')}"
+                    },
+                    "uri": "https://graph.microsoft.com/v1.0/groups/@{items('For_Each_Config')?['fields']?['TargetGroupId']}/owners?$select=id"
+                  }
+                },
+                "Select_OwnerIds": {
+                  "runAfter": {
+                    "HTTP_Get_Target_Owners": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('HTTP_Get_Target_Owners')?['value']",
+                    "select": "@item()?['id']"
+                  }
+                },
+                "Select_AllTargetMemberIds": {
+                  "runAfter": {
+                    "Select_OwnerIds": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Filter_Target_Users')",
+                    "select": "@item()?['id']"
+                  }
+                },
+                "Select_SourceUserIds": {
+                  "runAfter": {
+                    "Select_AllTargetMemberIds": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@body('Filter_Source_Users')",
+                    "select": "@item()?['id']"
+                  }
+                },
+                "Filter_ToAdd": {
+                  "runAfter": {
+                    "Select_SourceUserIds": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Filter_Source_Users')",
+                    "where": "@not(contains(body('Select_AllTargetMemberIds'), item()?['id']))"
+                  }
+                },
+                "Filter_ToRemove": {
+                  "runAfter": {
+                    "Filter_ToAdd": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Filter_Target_Users')",
+                    "where": "@and(not(contains(body('Select_SourceUserIds'), item()?['id'])), not(contains(body('Select_OwnerIds'), item()?['id'])))"
+                  }
+                },
+                "For_Each_Add": {
+                  "runAfter": {
+                    "Filter_ToRemove": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Foreach",
+                  "foreach": "@body('Filter_ToAdd')",
+                  "runtimeConfiguration": {
+                    "concurrency": {
+                      "repetitions": 1
+                    }
+                  },
+                  "actions": {
+                    "HTTP_Add_Member": {
+                      "runAfter": {},
+                      "type": "Http",
+                      "inputs": {
+                        "body": {
+                          "@@odata.id": "https://graph.microsoft.com/v1.0/directoryObjects/@{items('For_Each_Add')?['id']}"
+                        },
+                        "method": "POST",
+                        "headers": {
+                          "Authorization": "Bearer @{variables('varAccessToken')}",
+                          "Content-Type": "application/json"
+                        },
+                        "uri": "https://graph.microsoft.com/v1.0/groups/@{items('For_Each_Config')?['fields']?['TargetGroupId']}/members/$ref"
+                      }
+                    },
+                    "Increment_AddedCount": {
+                      "runAfter": {
+                        "HTTP_Add_Member": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "IncrementVariable",
+                      "inputs": {
+                        "name": "varAddedCount",
+                        "value": 1
+                      }
+                    },
+                    "Append_AddedUser": {
+                      "runAfter": {
+                        "Increment_AddedCount": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "AppendToStringVariable",
+                      "inputs": {
+                        "name": "varAddedUsers",
+                        "value": "@{items('For_Each_Add')?['userPrincipalName']}, "
+                      }
+                    }
+                  }
+                },
+                "For_Each_Remove": {
+                  "runAfter": {
+                    "For_Each_Add": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Foreach",
+                  "foreach": "@body('Filter_ToRemove')",
+                  "runtimeConfiguration": {
+                    "concurrency": {
+                      "repetitions": 1
+                    }
+                  },
+                  "actions": {
+                    "HTTP_Remove_Member": {
+                      "runAfter": {},
+                      "type": "Http",
+                      "inputs": {
+                        "method": "DELETE",
+                        "headers": {
+                          "Authorization": "Bearer @{variables('varAccessToken')}"
+                        },
+                        "uri": "https://graph.microsoft.com/v1.0/groups/@{items('For_Each_Config')?['fields']?['TargetGroupId']}/members/@{items('For_Each_Remove')?['id']}/$ref"
+                      }
+                    },
+                    "Increment_RemovedCount": {
+                      "runAfter": {
+                        "HTTP_Remove_Member": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "IncrementVariable",
+                      "inputs": {
+                        "name": "varRemovedCount",
+                        "value": 1
+                      }
+                    },
+                    "Append_RemovedUser": {
+                      "runAfter": {
+                        "Increment_RemovedCount": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "AppendToStringVariable",
+                      "inputs": {
+                        "name": "varRemovedUsers",
+                        "value": "@{items('For_Each_Remove')?['userPrincipalName']}, "
+                      }
+                    }
+                  }
+                },
+                "Condition_HasChanges": {
+                  "runAfter": {
+                    "For_Each_Remove": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "If",
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "or": [
+                      {
+                        "greater": [
+                          "@variables('varAddedCount')",
+                          0
+                        ]
+                      },
+                      {
+                        "greater": [
+                          "@variables('varRemovedCount')",
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "HTTP_Create_Log": {
+                      "runAfter": {},
+                      "type": "Http",
+                      "inputs": {
+                        "body": {
+                          "fields": {
+                            "TargetGroupId": "@{items('For_Each_Config')?['fields']?['TargetGroupId']}",
+                            "RemovedUsers": "@variables('varRemovedUsers')",
+                            "SourceGroupId": "@{items('For_Each_Config')?['fields']?['SourceGroupId']}",
+                            "SyncTimestamp": "@{utcNow()}",
+                            "MembersRemoved": "@variables('varRemovedCount')",
+                            "MembersAdded": "@variables('varAddedCount')",
+                            "AddedUsers": "@variables('varAddedUsers')",
+                            "Title": "Sync @{utcNow()}"
+                          }
+                        },
+                        "method": "POST",
+                        "headers": {
+                          "Authorization": "Bearer @{variables('varAccessToken')}",
+                          "Content-Type": "application/json"
+                        },
+                        "uri": "https://graph.microsoft.com/v1.0/sites/<YOUR-SHAREPOINT-SITE-ID>/lists/<YOUR-LOG-LIST-ID>/items"
+                      }
+                    }
+                  }
+                },
+                "HTTP_Update_Config_Success": {
+                  "runAfter": {
+                    "Condition_HasChanges": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Http",
+                  "inputs": {
+                    "body": {
+                      "MembersAdded": "@variables('varAddedCount')",
+                      "LastSyncStatus": "Success",
+                      "MembersRemoved": "@variables('varRemovedCount')",
+                      "LastSyncTime": "@{utcNow()}"
+                    },
+                    "method": "PATCH",
+                    "headers": {
+                      "Authorization": "Bearer @{variables('varAccessToken')}",
+                      "Content-Type": "application/json"
+                    },
+                    "uri": "https://graph.microsoft.com/v1.0/sites/<YOUR-SHAREPOINT-SITE-ID>/lists/<YOUR-CONFIG-LIST-ID>/items/@{items('For_Each_Config')?['id']}/fields"
+                  }
+                }
+              }
+            },
+            "Scope_CatchSync": {
+              "runAfter": {
+                "Scope_TrySync": [
+                  "Failed",
+                  "TimedOut"
+                ]
+              },
+              "type": "Scope",
+              "actions": {
+                "HTTP_Update_Config_Error": {
+                  "runAfter": {},
+                  "type": "Http",
+                  "inputs": {
+                    "body": {
+                      "LastSyncTime": "@{utcNow()}",
+                      "LastSyncStatus": "Error"
+                    },
+                    "method": "PATCH",
+                    "headers": {
+                      "Authorization": "Bearer @{variables('varAccessToken')}",
+                      "Content-Type": "application/json"
+                    },
+                    "uri": "https://graph.microsoft.com/v1.0/sites/<YOUR-SHAREPOINT-SITE-ID>/lists/<YOUR-CONFIG-LIST-ID>/items/@{items('For_Each_Config')?['id']}/fields"
+                  }
+                },
+                "HTTP_Send_Error_Email": {
+                  "runAfter": {
+                    "HTTP_Update_Config_Error": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Http",
+                  "inputs": {
+                    "body": {
+                      "saveToSentItems": false,
+                      "message": {
+                        "subject": "GroupSync FEHLER - Sync fehlgeschlagen",
+                        "toRecipients": [
+                          {
+                            "emailAddress": {
+                              "address": "<YOUR-ERROR-EMAIL>"
+                            }
+                          }
+                        ],
+                        "body": {
+                          "contentType": "HTML",
+                          "content": "<h3>GroupSync - Fehler</h3><p><b>Zeit:</b> @{utcNow()}</p><p><b>Quelle:</b> @{items('For_Each_Config')?['fields']?['SourceGroupId']}</p><p><b>Ziel:</b> @{items('For_Each_Config')?['fields']?['TargetGroupId']}</p><p>Bitte Flow-Verlauf in Power Automate pruefen.</p>"
+                        }
+                      }
+                    },
+                    "method": "POST",
+                    "headers": {
+                      "Authorization": "Bearer @{variables('varAccessToken')}",
+                      "Content-Type": "application/json"
+                    },
+                    "uri": "https://graph.microsoft.com/v1.0/users/<YOUR-SENDER-UPN>/sendMail"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "outputs": {},
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Hour"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "contentVersion": "1.0.0.0",
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#"
+    },
+    "connectionReferences": {}
+  }
+}
