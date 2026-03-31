@@ -152,7 +152,6 @@ Add entries to the **GroupSync-Config** SharePoint list:
 |---|---|
 | `README.md` | This file |
 | `FLOW-DOCUMENTATION.md` | Detailed action-by-action flow documentation |
-| `plan.md` | Project plan and architecture decisions |
 | `IMPORT-ANLEITUNG.md` | Import guide (German) |
 | `GroupSync.ps1` | Standalone PowerShell sync script |
 | `flow-definition/flow-definition.json` | Power Automate flow definition (JSON) |
