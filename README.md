@@ -117,6 +117,7 @@ After setup, add entries to the **GroupSync-Config** SharePoint list:
 | `FLOW-DOCUMENTATION.md` | Detailed action-by-action flow documentation (Option A) |
 | `GroupSync.ps1` | PowerShell sync script (Option B & C) |
 | `flow-definition/flow-definition.json` | Power Automate flow definition JSON (Option A) |
+| `solutions/GroupSync-Solution.zip` | Power Platform Solution for import (Option A) |
 
 ## Security Considerations
 
