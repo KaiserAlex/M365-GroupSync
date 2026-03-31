@@ -81,6 +81,10 @@ All options require an **Entra ID App Registration** first. Each guide includes 
 | **B: PowerShell + Task Scheduler** | [SETUP-OPTION-B.md](SETUP-OPTION-B.md) | PowerShell 5.1+, always-on Windows machine |
 | **C: Azure Automation Runbook** | [SETUP-OPTION-C.md](SETUP-OPTION-C.md) | Azure Subscription (500 min/month free) |
 
+### 🔐 Securing Secrets (Recommended)
+
+By default, the Client Secret is stored in plain text. For production environments, follow the **[Azure Key Vault Setup Guide](SETUP-KEYVAULT.md)** to secure your secrets. The guide covers Key Vault integration for all three options.
+
 ## Add Sync Pairs
 
 After setup, add entries to the **GroupSync-Config** SharePoint list:
@@ -109,6 +113,7 @@ After setup, add entries to the **GroupSync-Config** SharePoint list:
 | `SETUP-OPTION-A.md` | Setup guide: Power Automate Flow |
 | `SETUP-OPTION-B.md` | Setup guide: PowerShell + Task Scheduler |
 | `SETUP-OPTION-C.md` | Setup guide: Azure Automation Runbook |
+| `SETUP-KEYVAULT.md` | Setup guide: Securing secrets with Azure Key Vault |
 | `FLOW-DOCUMENTATION.md` | Detailed action-by-action flow documentation (Option A) |
 | `GroupSync.ps1` | PowerShell sync script (Option B & C) |
 | `flow-definition/flow-definition.json` | Power Automate flow definition JSON (Option A) |
