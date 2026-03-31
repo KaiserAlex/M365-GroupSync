@@ -1,6 +1,20 @@
 # GroupSync - PowerShell Sync Script
 # Reads sync pairs from SharePoint config list and syncs members from source groups to target teams.
 # Same behavior as the Power Automate flow, but runs standalone.
+#
+# How to find the required IDs:
+#
+# SiteId:
+#   Run in PowerShell (after az login):
+#     az rest --method GET --uri "https://graph.microsoft.com/v1.0/sites/{your-domain}.sharepoint.com:/sites/{site-name}" --query "id" -o tsv
+#   Example:
+#     az rest --method GET --uri "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/GroupSync" --query "id" -o tsv
+#   Returns a value like: contoso.sharepoint.com,xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx,yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+#
+# ConfigListId / LogListId:
+#   Run in PowerShell (using the SiteId from above):
+#     az rest --method GET --uri "https://graph.microsoft.com/v1.0/sites/{SiteId}/lists" --query "value[].{name:displayName, id:id}" -o table
+#   This lists all SharePoint lists on the site with their IDs. Find the IDs for "GroupSync-Config" and "GroupSync-Log".
 
 param(
     [string]$TenantId = "<YOUR-TENANT-ID>",
