@@ -137,8 +137,30 @@ Add entries to the **GroupSync-Config** SharePoint list:
 | `FLOW-DOCUMENTATION.md` | Detailed action-by-action flow documentation |
 | `plan.md` | Project plan and architecture decisions |
 | `IMPORT-ANLEITUNG.md` | Import guide (German) |
-| `Test-GroupSync.ps1` | Standalone PowerShell test script |
+| `GroupSync.ps1` | Standalone PowerShell sync script |
 | `flow-definition/flow-definition.json` | Power Automate flow definition (JSON) |
+
+## Alternative: Run as PowerShell Script
+
+Instead of Power Automate, you can run `GroupSync.ps1` on a schedule with the **same sync behavior**. This avoids the need for a Power Automate Premium license.
+
+**Options to run on a schedule:**
+
+| Method | Where | Cost |
+|---|---|---|
+| **Windows Task Scheduler** | Local PC or Windows Server | Free |
+| **Azure Automation Runbook** | Azure Cloud | 500 min/month free |
+| **Azure Function (Timer Trigger)** | Azure Cloud | Generous free tier |
+
+**Example: Windows Task Scheduler**
+```powershell
+# Create a scheduled task that runs GroupSync.ps1 every hour
+$action = New-ScheduledTaskAction -Execute "pwsh.exe" -Argument "-File C:\path\to\GroupSync.ps1"
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)
+Register-ScheduledTask -TaskName "GroupSync" -Action $action -Trigger $trigger -RunLevel Highest
+```
+
+> **Note:** The PowerShell script currently syncs a single source→target pair (configured via parameters). For multi-pair support with SharePoint config list, the script would need to be extended.
 
 ## Security Considerations
 
