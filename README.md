@@ -2,7 +2,7 @@
 
 > **⚠️ Disclaimer:** This solution is provided **"as is"** without warranty of any kind, express or implied. Use at your own risk. The authors assume no liability for any damages or issues arising from the use of this solution. Always test thoroughly in a non-production environment before deploying to production.
 
-Automatically synchronize members from **Security Groups** and **Distribution Lists** into **Microsoft Teams** (M365 Groups) using a Power Automate Cloud Flow.
+Automatically synchronize members from **Security Groups** and **Distribution Lists** into **Microsoft Teams** (M365 Groups).
 
 ## Problem
 
@@ -10,18 +10,27 @@ Microsoft 365 Groups (Teams) do not support dynamic membership based on Security
 
 ## Solution
 
-A **Power Automate Cloud Flow** that runs hourly and performs a **delta sync**:
+This project provides **two interchangeable approaches** – choose the one that fits your environment:
+
+| Approach | Description | Requires |
+|---|---|---|
+| **Option A: Power Automate Flow** | Cloud flow that runs hourly on the Power Platform | Power Automate **Premium** license |
+| **Option B: PowerShell Script** | `GroupSync.ps1` – run on a schedule via Task Scheduler, Azure Automation, or Azure Function | PowerShell 5.1+ (no Power Automate license needed) |
+
+Both options use the **same sync logic**, the **same App Registration**, and the **same SharePoint lists** for configuration and logging. You only need to set up one of them.
+
+**What the sync does:**
 - Members in the source group but not in the target team → **added**
 - Members in the target team but not in the source group → **removed**
 - Team owners are **never touched** (completely excluded from sync)
 - Changes are logged to a SharePoint list
 
 ```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────────┐
-│  Security Group  │     │   Power Automate  │     │  Existing Teams      │
-│  or Dist. List   │────▶│   (Hourly)        │────▶│  Team (M365 Group)   │
-│  (Source)        │     │   HTTP-only       │     │  (Target)            │
-└──────────────────┘     └──────────────────┘     └──────────────────────┘
+┌──────────────────┐     ┌──────────────────────────┐     ┌──────────────────────┐
+│  Security Group  │     │  Power Automate Flow      │     │  Existing Teams      │
+│  or Dist. List   │────▶│  OR                       │────▶│  Team (M365 Group)   │
+│  (Source)        │     │  PowerShell Script (cron)  │     │  (Target)            │
+└──────────────────┘     └──────────────────────────┘     └──────────────────────┘
                               │
                               ▼
                          Microsoft Graph API
