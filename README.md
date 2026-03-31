@@ -71,65 +71,20 @@ All three options use the **same sync logic**, the **same App Registration**, an
 | **B: PowerShell + Task Scheduler** | PowerShell 5.1+, always-on Windows machine |
 | **C: Azure Automation Runbook** | Azure Subscription (500 min/month free tier) |
 
-## Setup Guide
+## Setup Guides
 
-### 1. Create App Registration
+All options require an **Entra ID App Registration** first. Each guide includes the full setup steps:
 
-1. Go to **Azure Portal** → **Entra ID** → **App Registrations** → **New Registration**
-2. Name: `GroupSync-Automation`, Single tenant
-3. Add the Application Permissions listed above
-4. Grant **Admin Consent**
-5. Create a **Client Secret** (note: max 24 months validity)
+| Option | Guide | Requires |
+|---|---|---|
+| **A: Power Automate Flow** | [SETUP-OPTION-A.md](SETUP-OPTION-A.md) | Power Automate Premium license |
+| **B: PowerShell + Task Scheduler** | [SETUP-OPTION-B.md](SETUP-OPTION-B.md) | PowerShell 5.1+, always-on Windows machine |
+| **C: Azure Automation Runbook** | [SETUP-OPTION-C.md](SETUP-OPTION-C.md) | Azure Subscription (500 min/month free) |
 
-### 2. Create SharePoint Lists
+## Add Sync Pairs
 
-Create two lists on a SharePoint site:
-
-**GroupSync-Config:**
-
-| Column | Type |
-|---|---|
-| SourceGroupId | Text |
-| TargetGroupId | Text |
-| SyncEnabled | Yes/No |
-| LastSyncTime | Text |
-| LastSyncStatus | Text |
-| MembersAdded | Number |
-| MembersRemoved | Number |
-
-**GroupSync-Log:**
-
-| Column | Type |
-|---|---|
-| SyncTimestamp | Text |
-| SourceGroupId | Text |
-| TargetGroupId | Text |
-| MembersAdded | Number |
-| MembersRemoved | Number |
-| AddedUsers | Multi-line Text |
-| RemovedUsers | Multi-line Text |
-
-### 3. Deploy the Flow
-
-Update the placeholders in `flow-definition/flow-definition.json` with your tenant-specific values:
-
-| Placeholder | Description |
-|---|---|
-| `<YOUR-TENANT-ID>` | Entra ID tenant ID |
-| `<YOUR-CLIENT-ID>` | App Registration client ID |
-| `<YOUR-CLIENT-SECRET>` | App Registration client secret |
-| `<YOUR-SHAREPOINT-SITE-ID>` | Graph API site ID (format: `domain,site-guid,web-guid`) |
-| `<YOUR-CONFIG-LIST-ID>` | Graph API list ID for GroupSync-Config |
-| `<YOUR-LOG-LIST-ID>` | Graph API list ID for GroupSync-Log |
-| `<YOUR-SENDER-UPN>` | Email address of the sender mailbox for error notifications |
-| `<YOUR-ERROR-EMAIL>` | Recipient email for error notifications |
-
-Then deploy via the **Dataverse API** or import as a **Power Platform Solution**.
-
-### 4. Add Sync Pairs
-
-Add entries to the **GroupSync-Config** SharePoint list:
-- **Title:** Descriptive name
+After setup, add entries to the **GroupSync-Config** SharePoint list:
+- **Title:** Descriptive name (e.g. "Engineering Team Sync")
 - **SourceGroupId:** GUID of the Security Group or Distribution List
 - **TargetGroupId:** GUID of the existing Teams team
 - **SyncEnabled:** Yes
@@ -151,53 +106,12 @@ Add entries to the **GroupSync-Config** SharePoint list:
 | File | Description |
 |---|---|
 | `README.md` | This file |
-| `FLOW-DOCUMENTATION.md` | Detailed action-by-action flow documentation |
-| `IMPORT-ANLEITUNG.md` | Import guide (German) |
-| `GroupSync.ps1` | Standalone PowerShell sync script |
-| `flow-definition/flow-definition.json` | Power Automate flow definition (JSON) |
-
-## Option B: Run as PowerShell Script (Task Scheduler)
-
-Instead of Power Automate, you can run `GroupSync.ps1` on a schedule with the **same sync behavior**. This avoids the need for a Power Automate Premium license.
-
-```powershell
-# Run manually
-.\GroupSync.ps1 -TenantId "..." -ClientId "..." -ClientSecret "..." -SharePointSiteUrl "https://contoso.sharepoint.com/sites/MySite"
-```
-
-On the first run, the script **automatically creates** the SharePoint lists (`GroupSync-Config` and `GroupSync-Log`) if they don't exist yet.
-
-**Set up as scheduled task (runs every hour):**
-```powershell
-$action = New-ScheduledTaskAction -Execute "pwsh.exe" -Argument '-File "C:\path\to\GroupSync.ps1" -TenantId "..." -ClientId "..." -ClientSecret "..." -SharePointSiteUrl "https://contoso.sharepoint.com/sites/MySite"'
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)
-Register-ScheduledTask -TaskName "GroupSync" -Action $action -Trigger $trigger -RunLevel Highest
-```
-
-## Option C: Run as Azure Automation Runbook
-
-Host the script in Azure – no local machine required, runs reliably in the cloud.
-
-**Setup:**
-1. Create an **Azure Automation Account** in the Azure Portal
-2. Go to **Runbooks** → **Create a runbook**
-   - Name: `GroupSync`
-   - Type: **PowerShell**
-   - Runtime version: **7.2** (or higher)
-3. Paste the contents of `GroupSync.ps1` into the editor
-4. Replace the `param()` default values with your tenant-specific values (or use Azure Automation variables/encrypted credentials)
-5. **Publish** the runbook
-6. Go to **Schedules** → **Add a schedule**
-   - Recurrence: **Every 1 hour**
-   - Link the schedule to the runbook
-
-**Cost:** Azure Automation includes **500 minutes/month free**. A typical GroupSync run takes a few seconds, so the free tier is more than sufficient.
-
-**Tip:** For better security, store the Client Secret as an **Azure Automation Encrypted Variable** instead of hardcoding it in the runbook:
-```powershell
-# In the runbook, replace the param with:
-$ClientSecret = Get-AutomationVariable -Name 'GroupSyncClientSecret'
-```
+| `SETUP-OPTION-A.md` | Setup guide: Power Automate Flow |
+| `SETUP-OPTION-B.md` | Setup guide: PowerShell + Task Scheduler |
+| `SETUP-OPTION-C.md` | Setup guide: Azure Automation Runbook |
+| `FLOW-DOCUMENTATION.md` | Detailed action-by-action flow documentation (Option A) |
+| `GroupSync.ps1` | PowerShell sync script (Option B & C) |
+| `flow-definition/flow-definition.json` | Power Automate flow definition JSON (Option A) |
 
 ## Security Considerations
 
