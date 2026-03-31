@@ -9,7 +9,7 @@
 - **Client Secret**: `<YOUR-CLIENT-SECRET>`
 - **Permissions**: Group.Read.All, GroupMember.ReadWrite.All, User.Read.All, Sites.ReadWrite.All, Sites.Manage.All
 
-### 2. SharePoint-Listen (auf DemoSven Site)
+### 2. SharePoint-Listen (auf der SharePoint Demo Site)
 - **GroupSync-Config** – Konfiguration der Sync-Paare
 - **GroupSync-Log** – Protokoll der Änderungen (nur bei Änderungen)
 
@@ -19,7 +19,7 @@
 - **Members**: Adil Eli, Amber Rodriguez, Billie Vester
 
 ### 4. Ziel-Team (Test)
-- **Name**: Demo Sven
+- **Name**: Demo Team
 - **ID**: `<YOUR-TARGET-GROUP-ID>`
 - **Owner**: MOD Administrator (wird vom Sync ignoriert)
 
@@ -57,7 +57,7 @@ Beim Import werden zwei Verbindungen benötigt:
 
 ## Weitere Sync-Paare hinzufügen
 
-1. Gehe zur SharePoint-Liste **"GroupSync-Config"** auf der DemoSven-Site
+1. Gehe zur SharePoint-Liste **"GroupSync-Config"** auf der SharePoint Demo Site
 2. Füge einen neuen Eintrag hinzu:
    - **Title**: Beschreibender Name
    - **SourceGroupId**: GUID der Security Group oder Verteilerliste

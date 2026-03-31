@@ -1,17 +1,17 @@
-# GroupSync - Test Script
-# Testet die Sync-Logik bevor sie in Power Automate implementiert wird
+# GroupSync - PowerShell Sync Script
+# Reads sync pairs from SharePoint config list and syncs members from source groups to target teams.
+# Same behavior as the Power Automate flow, but runs standalone.
 
 param(
     [string]$TenantId = "<YOUR-TENANT-ID>",
     [string]$ClientId = "<YOUR-CLIENT-ID>",
     [string]$ClientSecret = "<YOUR-CLIENT-SECRET>",
-    [string]$SourceGroupId = "<YOUR-SOURCE-GROUP-ID>",  # GroupSync-TestSource
-    [string]$TargetGroupId = "<YOUR-TARGET-GROUP-ID>"   # Demo Sven
+    [string]$SiteId = "<YOUR-SHAREPOINT-SITE-ID>",
+    [string]$ConfigListId = "<YOUR-CONFIG-LIST-ID>",
+    [string]$LogListId = "<YOUR-LOG-LIST-ID>"
 )
 
-$headers = @{ "Content-Type" = "application/x-www-form-urlencoded" }
-
-# Step 1: Get Access Token
+# --- Step 1: Get Access Token ---
 Write-Host "`n=== Step 1: Getting Access Token ===" -ForegroundColor Cyan
 $tokenBody = @{
     grant_type    = "client_credentials"
@@ -24,96 +24,143 @@ $token = $tokenResponse.access_token
 $authHeaders = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
 Write-Host "Token obtained successfully" -ForegroundColor Green
 
-# Step 2: Get Source Group Members (only users)
-Write-Host "`n=== Step 2: Getting Source Group Members ===" -ForegroundColor Cyan
-$sourceMembers = @()
-$uri = "https://graph.microsoft.com/v1.0/groups/$SourceGroupId/members?`$select=id,displayName,userPrincipalName&`$top=999"
-do {
-    $response = Invoke-RestMethod -Uri $uri -Headers $authHeaders -Method GET
-    $sourceMembers += $response.value | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.user' }
-    $uri = $response.'@odata.nextLink'
-} while ($uri)
-Write-Host "Source members: $($sourceMembers.Count)"
-$sourceMembers | ForEach-Object { Write-Host "  - $($_.displayName) ($($_.userPrincipalName))" }
+# --- Step 2: Read config from SharePoint ---
+Write-Host "`n=== Step 2: Reading Config from SharePoint ===" -ForegroundColor Cyan
+$configResponse = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$ConfigListId/items?`$expand=fields&`$top=100" -Headers $authHeaders -Method GET
+$configItems = $configResponse.value | Where-Object { $_.fields.SyncEnabled -eq $true }
+Write-Host "Found $($configItems.Count) enabled sync pair(s)"
 
-# Step 3: Get Target Group Members (all)
-Write-Host "`n=== Step 3: Getting Target Group Members ===" -ForegroundColor Cyan
-$targetMembers = @()
-$uri = "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members?`$select=id,displayName,userPrincipalName&`$top=999"
-do {
-    $response = Invoke-RestMethod -Uri $uri -Headers $authHeaders -Method GET
-    $targetMembers += $response.value | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.user' }
-    $uri = $response.'@odata.nextLink'
-} while ($uri)
-Write-Host "Target members (all): $($targetMembers.Count)"
-$targetMembers | ForEach-Object { Write-Host "  - $($_.displayName) ($($_.userPrincipalName))" }
+if ($configItems.Count -eq 0) {
+    Write-Host "No enabled sync pairs found. Exiting." -ForegroundColor Yellow
+    exit 0
+}
 
-# Step 4: Get Target Group Owners
-Write-Host "`n=== Step 4: Getting Target Group Owners ===" -ForegroundColor Cyan
-$targetOwners = @()
-$uri = "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/owners?`$select=id,displayName,userPrincipalName"
-$response = Invoke-RestMethod -Uri $uri -Headers $authHeaders -Method GET
-$targetOwners = $response.value
-$ownerIds = $targetOwners | ForEach-Object { $_.id }
-Write-Host "Owners: $($targetOwners.Count)"
-$targetOwners | ForEach-Object { Write-Host "  - $($_.displayName) ($($_.userPrincipalName)) [OWNER - wird ignoriert]" -ForegroundColor Yellow }
+# --- Step 3: Process each sync pair ---
+foreach ($config in $configItems) {
+    $SourceGroupId = $config.fields.SourceGroupId
+    $TargetGroupId = $config.fields.TargetGroupId
+    $configItemId = $config.id
+    $configTitle = $config.fields.Title
 
-# Step 5: Filter owners out of target members
-Write-Host "`n=== Step 5: Delta Calculation ===" -ForegroundColor Cyan
-$targetMembersOnly = $targetMembers | Where-Object { $_.id -notin $ownerIds }
-Write-Host "Target members (ohne Owner): $($targetMembersOnly.Count)"
+    Write-Host "`n============================================" -ForegroundColor Magenta
+    Write-Host "Sync Pair: $configTitle" -ForegroundColor Magenta
+    Write-Host "  Source: $SourceGroupId" -ForegroundColor Magenta
+    Write-Host "  Target: $TargetGroupId" -ForegroundColor Magenta
+    Write-Host "============================================" -ForegroundColor Magenta
 
-$sourceIds = $sourceMembers | ForEach-Object { $_.id }
-$targetMemberIds = $targetMembersOnly | ForEach-Object { $_.id }
-
-# Users to add: in source but not in target (and not an owner)
-$toAdd = $sourceMembers | Where-Object { ($_.id -notin $targetMemberIds) -and ($_.id -notin $ownerIds) }
-Write-Host "`nTo ADD ($($toAdd.Count)):" -ForegroundColor Green
-$toAdd | ForEach-Object { Write-Host "  + $($_.displayName) ($($_.userPrincipalName))" -ForegroundColor Green }
-
-# Users to remove: in target members (not owners) but not in source
-$toRemove = $targetMembersOnly | Where-Object { $_.id -notin $sourceIds }
-Write-Host "`nTo REMOVE ($($toRemove.Count)):" -ForegroundColor Red
-$toRemove | ForEach-Object { Write-Host "  - $($_.displayName) ($($_.userPrincipalName))" -ForegroundColor Red }
-
-# Step 6: Execute sync
-Write-Host "`n=== Step 6: Executing Sync ===" -ForegroundColor Cyan
-
-$addedCount = 0
-foreach ($user in $toAdd) {
     try {
-        $body = @{ "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$($user.id)" } | ConvertTo-Json
-        Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members/`$ref" -Headers $authHeaders -Method POST -Body $body
-        Write-Host "  Added: $($user.displayName)" -ForegroundColor Green
-        $addedCount++
-    } catch {
-        $statusCode = $_.Exception.Response.StatusCode.value__
-        if ($statusCode -eq 400) {
-            Write-Host "  Skipped (already member): $($user.displayName)" -ForegroundColor Yellow
-        } else {
-            Write-Host "  ERROR adding $($user.displayName): $($_.Exception.Message)" -ForegroundColor Red
+        # Get Source Group Members (only users, with pagination)
+        Write-Host "`n  Getting source members..." -ForegroundColor Cyan
+        $sourceMembers = @()
+        $uri = "https://graph.microsoft.com/v1.0/groups/$SourceGroupId/members?`$select=id,displayName,userPrincipalName&`$top=999"
+        do {
+            $response = Invoke-RestMethod -Uri $uri -Headers $authHeaders -Method GET
+            $sourceMembers += $response.value | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.user' }
+            $uri = $response.'@odata.nextLink'
+        } while ($uri)
+        Write-Host "  Source members: $($sourceMembers.Count)"
+
+        # Get Target Group Members (with pagination)
+        Write-Host "  Getting target members..." -ForegroundColor Cyan
+        $targetMembers = @()
+        $uri = "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members?`$select=id,displayName,userPrincipalName&`$top=999"
+        do {
+            $response = Invoke-RestMethod -Uri $uri -Headers $authHeaders -Method GET
+            $targetMembers += $response.value | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.user' }
+            $uri = $response.'@odata.nextLink'
+        } while ($uri)
+        Write-Host "  Target members: $($targetMembers.Count)"
+
+        # Get Target Group Owners
+        Write-Host "  Getting target owners..." -ForegroundColor Cyan
+        $response = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/owners?`$select=id,displayName,userPrincipalName" -Headers $authHeaders -Method GET
+        $targetOwners = $response.value
+        $ownerIds = $targetOwners | ForEach-Object { $_.id }
+        Write-Host "  Owners: $($targetOwners.Count) (ignored by sync)"
+
+        # Delta Calculation
+        $targetMembersOnly = $targetMembers | Where-Object { $_.id -notin $ownerIds }
+        $sourceIds = $sourceMembers | ForEach-Object { $_.id }
+        $targetMemberIds = $targetMembersOnly | ForEach-Object { $_.id }
+
+        $toAdd = $sourceMembers | Where-Object { ($_.id -notin $targetMemberIds) -and ($_.id -notin $ownerIds) }
+        $toRemove = $targetMembersOnly | Where-Object { $_.id -notin $sourceIds }
+
+        Write-Host "`n  To ADD: $($toAdd.Count)" -ForegroundColor Green
+        Write-Host "  To REMOVE: $($toRemove.Count)" -ForegroundColor Red
+
+        # Execute: Add members
+        $addedCount = 0
+        $addedUsers = @()
+        foreach ($user in $toAdd) {
+            try {
+                $body = @{ "@odata.id" = "https://graph.microsoft.com/v1.0/directoryObjects/$($user.id)" } | ConvertTo-Json
+                Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members/`$ref" -Headers $authHeaders -Method POST -Body $body
+                Write-Host "    + Added: $($user.displayName)" -ForegroundColor Green
+                $addedCount++
+                $addedUsers += $user.userPrincipalName
+            } catch {
+                $statusCode = $_.Exception.Response.StatusCode.value__
+                if ($statusCode -eq 400) {
+                    Write-Host "    ~ Skipped (already member): $($user.displayName)" -ForegroundColor Yellow
+                } else {
+                    Write-Host "    ! ERROR adding $($user.displayName): $($_.Exception.Message)" -ForegroundColor Red
+                }
+            }
         }
-    }
-}
 
-$removedCount = 0
-foreach ($user in $toRemove) {
-    try {
-        Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members/$($user.id)/`$ref" -Headers $authHeaders -Method DELETE
-        Write-Host "  Removed: $($user.displayName)" -ForegroundColor Red
-        $removedCount++
+        # Execute: Remove members
+        $removedCount = 0
+        $removedUsers = @()
+        foreach ($user in $toRemove) {
+            try {
+                Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members/$($user.id)/`$ref" -Headers $authHeaders -Method DELETE
+                Write-Host "    - Removed: $($user.displayName)" -ForegroundColor Red
+                $removedCount++
+                $removedUsers += $user.userPrincipalName
+            } catch {
+                Write-Host "    ! ERROR removing $($user.displayName): $($_.Exception.Message)" -ForegroundColor Red
+            }
+        }
+
+        # Update config item in SharePoint
+        $updateBody = @{
+            LastSyncTime = (Get-Date -Format "o")
+            LastSyncStatus = "Success"
+            MembersAdded = $addedCount
+            MembersRemoved = $removedCount
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$ConfigListId/items/$configItemId/fields" -Headers $authHeaders -Method PATCH -Body $updateBody | Out-Null
+
+        # Create log entry (only if changes occurred)
+        if ($addedCount -gt 0 -or $removedCount -gt 0) {
+            $logBody = @{
+                fields = @{
+                    Title = "Sync $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+                    SyncTimestamp = (Get-Date -Format "o")
+                    SourceGroupId = $SourceGroupId
+                    TargetGroupId = $TargetGroupId
+                    MembersAdded = $addedCount
+                    MembersRemoved = $removedCount
+                    AddedUsers = ($addedUsers -join ", ")
+                    RemovedUsers = ($removedUsers -join ", ")
+                }
+            } | ConvertTo-Json -Depth 3
+            Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$LogListId/items" -Headers $authHeaders -Method POST -Body $logBody | Out-Null
+            Write-Host "`n  Log entry created" -ForegroundColor Cyan
+        }
+
+        Write-Host "`n  RESULT: Added=$addedCount, Removed=$removedCount, Owners=$($targetOwners.Count) (untouched)" -ForegroundColor Cyan
+
     } catch {
-        Write-Host "  ERROR removing $($user.displayName): $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "`n  SYNC FAILED: $($_.Exception.Message)" -ForegroundColor Red
+
+        # Update config with error status
+        try {
+            $errorBody = @{ LastSyncTime = (Get-Date -Format "o"); LastSyncStatus = "Error" } | ConvertTo-Json
+            Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$ConfigListId/items/$configItemId/fields" -Headers $authHeaders -Method PATCH -Body $errorBody | Out-Null
+        } catch {}
     }
 }
 
-# Summary
-Write-Host "`n=== SYNC COMPLETE ===" -ForegroundColor Cyan
-Write-Host "Added:   $addedCount"
-Write-Host "Removed: $removedCount"
-Write-Host "Owners:  $($targetOwners.Count) (untouched)"
-
-# Step 7: Verify final state
-Write-Host "`n=== Final State ===" -ForegroundColor Cyan
-$finalMembers = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/groups/$TargetGroupId/members?`$select=id,displayName,userPrincipalName" -Headers $authHeaders -Method GET
-$finalMembers.value | ForEach-Object { Write-Host "  $($_.displayName) ($($_.userPrincipalName))" }
+Write-Host "`n=== ALL SYNC PAIRS COMPLETE ===" -ForegroundColor Cyan

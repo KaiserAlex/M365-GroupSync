@@ -160,7 +160,7 @@ $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (Ne
 Register-ScheduledTask -TaskName "GroupSync" -Action $action -Trigger $trigger -RunLevel Highest
 ```
 
-> **Note:** The PowerShell script currently syncs a single source→target pair (configured via parameters). For multi-pair support with SharePoint config list, the script would need to be extended.
+The PowerShell script reads its sync pairs from the same SharePoint config list as the Power Automate flow, so both approaches are fully interchangeable.
 
 ## Security Considerations
 
