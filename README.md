@@ -52,7 +52,6 @@ All three options use the **same sync logic**, the **same App Registration**, an
 
 ## Prerequisites
 
-- **Power Automate Premium** license (HTTP connector is a premium feature)
 - **Entra ID App Registration** with the following Application Permissions (admin consent required):
 
 | Permission | Purpose |
@@ -62,7 +61,15 @@ All three options use the **same sync logic**, the **same App Registration**, an
 | `User.Read.All` | Resolve user information |
 | `Sites.ReadWrite.All` | Read/write SharePoint list items |
 | `Sites.Manage.All` | Create SharePoint list items |
-| `Mail.Send` | Send error notification emails |
+| `Mail.Send` | Send error notification emails (Option A only) |
+
+**Additional prerequisites per option:**
+
+| Option | Additional Requirement |
+|---|---|
+| **A: Power Automate Flow** | Power Automate **Premium** license (HTTP connector is premium) |
+| **B: PowerShell + Task Scheduler** | PowerShell 5.1+, always-on Windows machine |
+| **C: Azure Automation Runbook** | Azure Subscription (500 min/month free tier) |
 
 ## Setup Guide
 
