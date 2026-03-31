@@ -66,6 +66,9 @@ Deploy the flow via the **Dataverse API** or import as a **Power Platform Soluti
 
 1. Go to **https://make.powerautomate.com** → **Solutions**
 2. Create or select a solution
+3. Create a new **Cloud Flow** and paste the definition from `flow-definition/flow-definition.json` via code view
+4. Replace all placeholder values with your actual values (see table in step 3)
+5. Save and **Turn on** the flow
 3. Import the flow definition, or create a new cloud flow and paste the definition via code view
 
 > For detailed flow action documentation, see [FLOW-DOCUMENTATION.md](FLOW-DOCUMENTATION.md).
