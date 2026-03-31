@@ -132,7 +132,6 @@ The App Registration must have the following **Application Permissions** (with a
 - `GroupMember.ReadWrite.All` – add/remove group members
 - `User.Read.All` – resolve user information
 - `Sites.ReadWrite.All` – read/write SharePoint list items
-- `Sites.Manage.All` – create SharePoint list items
 - `Mail.Send` – send error notification emails
 
 > **Security Note:** The client secret is stored in plain text in this action. For production environments, use Azure Key Vault or Power Platform Environment Variables (Secret type) to protect it.

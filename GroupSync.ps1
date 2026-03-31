@@ -43,46 +43,9 @@ $listsResponse = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/
 $ConfigListId = ($listsResponse.value | Where-Object { $_.displayName -eq $ConfigListName }).id
 $LogListId = ($listsResponse.value | Where-Object { $_.displayName -eq $LogListName }).id
 
-# Auto-create lists if they don't exist
-if (-not $ConfigListId) {
-    Write-Host "  List '$ConfigListName' not found - creating..." -ForegroundColor Yellow
-    $configDef = @{
-        displayName = $ConfigListName
-        list = @{ template = "genericList" }
-        columns = @(
-            @{ name = "SourceGroupId"; text = @{} }
-            @{ name = "TargetGroupId"; text = @{} }
-            @{ name = "SyncEnabled"; boolean = @{} }
-            @{ name = "LastSyncTime"; text = @{} }
-            @{ name = "LastSyncStatus"; text = @{} }
-            @{ name = "MembersAdded"; number = @{} }
-            @{ name = "MembersRemoved"; number = @{} }
-        )
-    } | ConvertTo-Json -Depth 5
-    $configList = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists" -Headers $authHeaders -Method POST -Body $configDef
-    $ConfigListId = $configList.id
-    Write-Host "  Created '$ConfigListName'" -ForegroundColor Green
-}
-
-if (-not $LogListId) {
-    Write-Host "  List '$LogListName' not found - creating..." -ForegroundColor Yellow
-    $logDef = @{
-        displayName = $LogListName
-        list = @{ template = "genericList" }
-        columns = @(
-            @{ name = "SyncTimestamp"; text = @{} }
-            @{ name = "SourceGroupId"; text = @{} }
-            @{ name = "TargetGroupId"; text = @{} }
-            @{ name = "MembersAdded"; number = @{} }
-            @{ name = "MembersRemoved"; number = @{} }
-            @{ name = "AddedUsers"; text = @{ allowMultipleLines = $true } }
-            @{ name = "RemovedUsers"; text = @{ allowMultipleLines = $true } }
-        )
-    } | ConvertTo-Json -Depth 5
-    $logList = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists" -Headers $authHeaders -Method POST -Body $logDef
-    $LogListId = $logList.id
-    Write-Host "  Created '$LogListName'" -ForegroundColor Green
-}
+# Verify lists exist
+if (-not $ConfigListId) { Write-Host "ERROR: List '$ConfigListName' not found on site! Please create it manually." -ForegroundColor Red; exit 1 }
+if (-not $LogListId) { Write-Host "ERROR: List '$LogListName' not found on site! Please create it manually." -ForegroundColor Red; exit 1 }
 
 Write-Host "  Config List ID: $ConfigListId ($ConfigListName)"
 Write-Host "  Log List ID: $LogListId ($LogListName)"

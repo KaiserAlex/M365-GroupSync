@@ -60,7 +60,6 @@ All three options use the **same sync logic**, the **same App Registration**, an
 | `GroupMember.ReadWrite.All` | Add/remove target group members |
 | `User.Read.All` | Resolve user information |
 | `Sites.ReadWrite.All` | Read/write SharePoint list items |
-| `Sites.Manage.All` | Create SharePoint list items |
 | `Mail.Send` | Send error notification emails (Option A only) |
 
 **Additional prerequisites per option:**

@@ -12,7 +12,6 @@
    - `GroupMember.ReadWrite.All`
    - `User.Read.All`
    - `Sites.ReadWrite.All`
-   - `Sites.Manage.All`
 4. Grant **Admin Consent**
 5. Create a **Client Secret** (note: max 24 months validity)
 6. Note down: **Client ID**, **Tenant ID**, **Client Secret**

@@ -11,7 +11,6 @@
    - `GroupMember.ReadWrite.All`
    - `User.Read.All`
    - `Sites.ReadWrite.All`
-   - `Sites.Manage.All`
 4. Grant **Admin Consent**
 5. Create a **Client Secret** (note: max 24 months validity)
 6. Note down: **Client ID**, **Tenant ID**, **Client Secret**
@@ -28,13 +27,39 @@
   -SharePointSiteUrl "https://contoso.sharepoint.com/sites/MySite"
 ```
 
-On the **first run**, the script automatically:
-- Resolves the SharePoint Site ID from the URL
-- Creates the **GroupSync-Config** and **GroupSync-Log** lists if they don't exist yet
+The script automatically resolves the SharePoint Site ID and List IDs from the URL and list names.
 
-## 3. Add Sync Pairs
+## 3. Create SharePoint Lists
 
-After the first run, go to the newly created **GroupSync-Config** SharePoint list and add entries:
+Before the first run, create two lists on your SharePoint site:
+
+**GroupSync-Config:**
+
+| Column | Type |
+|---|---|
+| SourceGroupId | Text |
+| TargetGroupId | Text |
+| SyncEnabled | Yes/No |
+| LastSyncTime | Text |
+| LastSyncStatus | Text |
+| MembersAdded | Number |
+| MembersRemoved | Number |
+
+**GroupSync-Log:**
+
+| Column | Type |
+|---|---|
+| SyncTimestamp | Text |
+| SourceGroupId | Text |
+| TargetGroupId | Text |
+| MembersAdded | Number |
+| MembersRemoved | Number |
+| AddedUsers | Multi-line Text |
+| RemovedUsers | Multi-line Text |
+
+## 4. Add Sync Pairs
+
+Go to the **GroupSync-Config** SharePoint list and add entries:
 - **Title:** Descriptive name (e.g. "Engineering Team Sync")
 - **SourceGroupId:** GUID of the Security Group or Distribution List
 - **TargetGroupId:** GUID of the existing Teams team
@@ -42,7 +67,7 @@ After the first run, go to the newly created **GroupSync-Config** SharePoint lis
 
 Then run the script again – it will sync all enabled pairs.
 
-## 4. Set Up Scheduled Task
+## 5. Set Up Scheduled Task
 
 Create a Windows Scheduled Task that runs the script every hour:
 
@@ -72,7 +97,7 @@ Register-ScheduledTask `
 
 > **Tip:** Use `pwsh.exe` for PowerShell 7+ or `powershell.exe` for Windows PowerShell 5.1.
 
-## 5. Verify
+## 6. Verify
 
 - Check **Task Scheduler** → the task should appear under "GroupSync"
 - After the next scheduled run, check the **GroupSync-Config** list for `LastSyncTime` and `LastSyncStatus`

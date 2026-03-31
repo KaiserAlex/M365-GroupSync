@@ -11,7 +11,6 @@
    - `GroupMember.ReadWrite.All`
    - `User.Read.All`
    - `Sites.ReadWrite.All`
-   - `Sites.Manage.All`
    - `Mail.Send`
 4. Grant **Admin Consent**
 5. Create a **Client Secret** (note: max 24 months validity)
