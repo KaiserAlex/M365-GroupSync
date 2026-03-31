@@ -2,27 +2,18 @@
 # Reads sync pairs from SharePoint config list and syncs members from source groups to target teams.
 # Same behavior as the Power Automate flow, but runs standalone.
 #
-# How to find the required IDs:
+# Usage:
+#   .\GroupSync.ps1 -TenantId "xxxx" -ClientId "xxxx" -ClientSecret "xxxx" -SharePointSiteUrl "https://contoso.sharepoint.com/sites/MySite"
 #
-# SiteId:
-#   Run in PowerShell (after az login):
-#     az rest --method GET --uri "https://graph.microsoft.com/v1.0/sites/{your-domain}.sharepoint.com:/sites/{site-name}" --query "id" -o tsv
-#   Example:
-#     az rest --method GET --uri "https://graph.microsoft.com/v1.0/sites/contoso.sharepoint.com:/sites/GroupSync" --query "id" -o tsv
-#   Returns a value like: contoso.sharepoint.com,xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx,yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
-#
-# ConfigListId / LogListId:
-#   Run in PowerShell (using the SiteId from above):
-#     az rest --method GET --uri "https://graph.microsoft.com/v1.0/sites/{SiteId}/lists" --query "value[].{name:displayName, id:id}" -o table
-#   This lists all SharePoint lists on the site with their IDs. Find the IDs for "GroupSync-Config" and "GroupSync-Log".
+# The script automatically resolves the SharePoint Site ID and List IDs from the URL and list names.
 
 param(
-    [string]$TenantId = "<YOUR-TENANT-ID>",
-    [string]$ClientId = "<YOUR-CLIENT-ID>",
-    [string]$ClientSecret = "<YOUR-CLIENT-SECRET>",
-    [string]$SiteId = "<YOUR-SHAREPOINT-SITE-ID>",
-    [string]$ConfigListId = "<YOUR-CONFIG-LIST-ID>",
-    [string]$LogListId = "<YOUR-LOG-LIST-ID>"
+    [Parameter(Mandatory)][string]$TenantId,
+    [Parameter(Mandatory)][string]$ClientId,
+    [Parameter(Mandatory)][string]$ClientSecret,
+    [Parameter(Mandatory)][string]$SharePointSiteUrl,   # e.g. https://contoso.sharepoint.com/sites/MySite
+    [string]$ConfigListName = "GroupSync-Config",
+    [string]$LogListName = "GroupSync-Log"
 )
 
 # --- Step 1: Get Access Token ---
@@ -38,8 +29,27 @@ $token = $tokenResponse.access_token
 $authHeaders = @{ "Authorization" = "Bearer $token"; "Content-Type" = "application/json" }
 Write-Host "Token obtained successfully" -ForegroundColor Green
 
-# --- Step 2: Read config from SharePoint ---
-Write-Host "`n=== Step 2: Reading Config from SharePoint ===" -ForegroundColor Cyan
+# --- Step 2: Resolve SharePoint Site ID and List IDs ---
+Write-Host "`n=== Step 2: Resolving SharePoint IDs ===" -ForegroundColor Cyan
+$siteUri = [System.Uri]$SharePointSiteUrl
+$hostname = $siteUri.Host
+$sitePath = $siteUri.AbsolutePath.TrimStart('/')
+
+$siteResponse = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/${hostname}:/${sitePath}" -Headers $authHeaders -Method GET
+$SiteId = $siteResponse.id
+Write-Host "  Site ID: $SiteId"
+
+$listsResponse = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists" -Headers $authHeaders -Method GET
+$ConfigListId = ($listsResponse.value | Where-Object { $_.displayName -eq $ConfigListName }).id
+$LogListId = ($listsResponse.value | Where-Object { $_.displayName -eq $LogListName }).id
+
+if (-not $ConfigListId) { Write-Host "ERROR: List '$ConfigListName' not found on site!" -ForegroundColor Red; exit 1 }
+if (-not $LogListId) { Write-Host "ERROR: List '$LogListName' not found on site!" -ForegroundColor Red; exit 1 }
+Write-Host "  Config List ID: $ConfigListId ($ConfigListName)"
+Write-Host "  Log List ID: $LogListId ($LogListName)"
+
+# --- Step 3: Reading Config from SharePoint ---
+Write-Host "`n=== Step 3: Reading Config from SharePoint ===" -ForegroundColor Cyan
 $configResponse = Invoke-RestMethod -Uri "https://graph.microsoft.com/v1.0/sites/$SiteId/lists/$ConfigListId/items?`$expand=fields&`$top=100" -Headers $authHeaders -Method GET
 $configItems = $configResponse.value | Where-Object { $_.fields.SyncEnabled -eq $true }
 Write-Host "Found $($configItems.Count) enabled sync pair(s)"
@@ -49,7 +59,7 @@ if ($configItems.Count -eq 0) {
     exit 0
 }
 
-# --- Step 3: Process each sync pair ---
+# --- Step 4: Process each sync pair ---
 foreach ($config in $configItems) {
     $SourceGroupId = $config.fields.SourceGroupId
     $TargetGroupId = $config.fields.TargetGroupId
