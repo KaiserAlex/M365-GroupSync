@@ -10,10 +10,32 @@
    - `Group.Read.All`
    - `GroupMember.ReadWrite.All`
    - `User.Read.All`
-   - `Sites.ReadWrite.All`
+   - `Sites.Selected`
 4. Grant **Admin Consent**
 5. Create a **Client Secret** (note: max 24 months validity)
 6. Note down: **Client ID**, **Tenant ID**, **Client Secret**
+7. **Grant the app access to your SharePoint site** (required for `Sites.Selected`):
+
+   Run the following in **Microsoft Graph Explorer** or via PowerShell (requires **Sites.FullControl.All** delegated permission or **SharePoint Admin** role):
+
+   ```http
+   POST https://graph.microsoft.com/v1.0/sites/{site-id}/permissions
+   Content-Type: application/json
+
+   {
+     "roles": ["write"],
+     "grantedToIdentities": [
+       {
+         "application": {
+           "id": "<YOUR-CLIENT-ID>",
+           "displayName": "GroupSync-Automation"
+         }
+       }
+     ]
+   }
+   ```
+
+   Replace `{site-id}` with your SharePoint site ID and `<YOUR-CLIENT-ID>` with your App Registration's Client ID. You can find the site ID by calling `GET https://graph.microsoft.com/v1.0/sites/{hostname}:/{site-path}`.
 
 > `Mail.Send` is not required for this option. Error notifications are logged to the SharePoint config list (status = "Error").
 

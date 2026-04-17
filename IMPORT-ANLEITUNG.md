@@ -7,7 +7,7 @@
 - **Client ID**: `<YOUR-CLIENT-ID>`
 - **Tenant ID**: `<YOUR-TENANT-ID>`
 - **Client Secret**: `<YOUR-CLIENT-SECRET>`
-- **Permissions**: Group.Read.All, GroupMember.ReadWrite.All, User.Read.All, Sites.ReadWrite.All
+- **Permissions**: Group.Read.All, GroupMember.ReadWrite.All, User.Read.All, Sites.Selected
 
 ### 2. SharePoint-Listen (auf der SharePoint Demo Site)
 - **GroupSync-Config** – Konfiguration der Sync-Paare

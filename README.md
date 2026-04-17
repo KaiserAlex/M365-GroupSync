@@ -59,10 +59,12 @@ All three options use the **same sync logic**, the **same App Registration**, an
 | `Group.Read.All` | All options | `GET /groups/{source}/members` | Read members of the **source group** (Security Group or Distribution List). Without this, the sync cannot read the source of truth. |
 | `GroupMember.ReadWrite.All` | All options | `GET /groups/{target}/members`, `GET /groups/{target}/owners`, `POST /groups/{target}/members/$ref`, `DELETE /groups/{target}/members/{id}/$ref` | Read **and write** members of the **target team**. Covers: listing current members, listing owners (to exclude them), adding new members, and removing former members. |
 | `User.Read.All` | All options | `$select=id,displayName,userPrincipalName` on member queries | Allows querying user properties (`displayName`, `userPrincipalName`) when listing group members. Without this, Graph API only returns `id` — the sync log and console output would have no user names. |
-| `Sites.ReadWrite.All` | All options | `GET /sites/{host}:/{path}`, `GET /sites/{id}/lists`, `GET .../items`, `PATCH .../items/{id}/fields`, `POST .../items` | Full SharePoint access: resolve site by URL, discover lists, read sync config, update config (status, timestamps, counts), and write log entries. |
+| `Sites.Selected` | All options | `GET /sites/{host}:/{path}`, `GET /sites/{id}/lists`, `GET .../items`, `PATCH .../items/{id}/fields`, `POST .../items` | **Recommended (least privilege).** Grants read/write access only to the specific SharePoint site you authorize. After granting admin consent, you must explicitly grant the app access to your SharePoint site (see setup guides). |
 | `Mail.Send` | **Option A only** | `POST /users/{sender}/sendMail` | Send error notification emails when a sync pair fails. **Not needed** for Options B and C (they log errors to the SharePoint config list instead). |
 
 > **Note:** All permissions are **Application** type (not Delegated) because the sync runs unattended with client credentials — no user is signed in. A **Global Admin** or **Privileged Role Admin** must grant admin consent.
+
+> **Why `Sites.Selected` instead of `Sites.ReadWrite.All`?** GroupSync only accesses a single SharePoint site. `Sites.Selected` follows the principle of least privilege — the app can only access the specific site you explicitly authorize, not all sites in your tenant. See the setup guides for the one-time site permission grant.
 
 **Additional prerequisites per option:**
 
